@@ -1,5 +1,5 @@
 // API配置
-const API_BASE_URL = 'https://homepageend.inonezero.workers.dev';
+const API_BASE_URL = 'https://homepage.inonezero.workers.dev';
 
 // GitHub用户名将从API获取
 let GITHUB_USERNAME = 'Ergou-ren'; // 默认值，将被API数据覆盖

@@ -31,11 +31,14 @@ async function handleRequest(request) {
   
   // 处理登出请求
   if (path === '/logout') {
+    const logoutUrl = new URL(request.url)
+    const isHttps = logoutUrl.protocol === 'https:'
+    const deleteCookie = `auth_token=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax${isHttps ? '; Secure' : ''}`
     return new Response('', {
       status: 302,
       headers: {
         'Location': '/manage',
-        'Set-Cookie': 'auth_token=; Path=/; Max-Age=0'
+        'Set-Cookie': deleteCookie
       }
     })
   }
@@ -276,9 +279,14 @@ async function checkAuth(request, kv) {
   const cookieHeader = request.headers.get('Cookie')
   if (!cookieHeader) return false
   
+  // Robust cookie parsing: only split on the first '=' to preserve Base64 padding ('=') inside values
   const cookies = Object.fromEntries(
-    cookieHeader.split(';').map(cookie => {
-      const [key, value] = cookie.trim().split('=')
+    cookieHeader.split(';').map(raw => {
+      const cookie = raw.trim()
+      const eq = cookie.indexOf('=')
+      if (eq === -1) return [cookie, '']
+      const key = cookie.slice(0, eq)
+      const value = cookie.slice(eq + 1)
       return [key, value]
     })
   )
@@ -383,12 +391,15 @@ async function handleLogin(request, kv) {
     
     if (username === adminCreds.username && password === adminCreds.password) {
       const token = await generateToken(username, kv)
-      
+      // Cookie: HTTPS 时附加 Secure；SameSite=Lax 以确保顶层导航/重定向携带
+      const loginUrl = new URL(request.url)
+      const isHttps = loginUrl.protocol === 'https:'
+      const cookie = `auth_token=${token}; Path=/; Max-Age=86400; HttpOnly; SameSite=Lax${isHttps ? '; Secure' : ''}`
       return new Response('', {
         status: 302,
         headers: {
           'Location': '/manage',
-          'Set-Cookie': `auth_token=${token}; Path=/; Max-Age=86400; HttpOnly; Secure; SameSite=Strict`
+          'Set-Cookie': cookie
         }
       })
     } else {
